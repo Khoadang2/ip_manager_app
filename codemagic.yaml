@@ -1,43 +1,80 @@
 workflows:
-  ios-unsigned:
-    name: iOS unsigned IPA (Flutter)
+  ios_unsigned_ipa:
+    name: iOS Unsigned IPA (Flutter)
+    instance_type: mac_mini_m1
     max_build_duration: 60
-    instance_type: mac_mini_m2
-
     environment:
       flutter: stable
       xcode: latest
+      cocoapods: default
+      vars:
+        API_BASE_URL: "http://192.168.71.9:5501"
+    cache:
+      cache_paths:
+        - $FLUTTER_ROOT/.pub-cache
+        - ~/.pub-cache
+        - ios/Pods
+        - ~/Library/Caches/CocoaPods
 
     scripts:
-      - name: Clean & Get Packages
+      - name: Flutter clean & get
+        script: |
+          flutter --version
+          flutter clean
+          flutter pub get
+
+      - name: Ensure iOS platform 12.0
+        script: |
+          if [ -f "ios/Podfile" ]; then
+            sed -i '' 's/platform :ios, .*/platform :ios, '\''12.0'\''/g' ios/Podfile || true
+          fi
+
+      - name: Build iOS (no codesign)
+        script: |
+          flutter build ios --release --no-codesign --dart-define=API_BASE_URL=$API_BASE_URL
+
+      - name: Create unsigned IPA artifact
+        script: |
+          mkdir -p build/ios/ipa/Payload
+          cp -R build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
+          cd build/ios/ipa
+          zip -r app_unsigned.ipa Payload
+          mv app_unsigned.ipa $CM_BUILD_DIR/app_unsigned.ipa
+
+    artifacts:
+      - $CM_BUILD_DIR/*.ipa
+
+  ios_signed_ipa:
+    name: iOS Signed IPA (Flutter)
+    instance_type: mac_mini_m1
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      vars:
+        API_BASE_URL: "http://192.168.71.9:5501"
+      groups:
+        - apple_credentials   # Khai báo ở Codemagic UI
+        - certificate_credentials
+    cache:
+      cache_paths:
+        - $FLUTTER_ROOT/.pub-cache
+        - ~/.pub-cache
+        - ios/Pods
+        - ~/Library/Caches/CocoaPods
+
+    scripts:
+      - name: Flutter clean & get
         script: |
           flutter clean
           flutter pub get
 
-      - name: Build iOS (no codesign)
+      - name: Build iOS signed IPA
         script: |
-          flutter build ios --release --no-codesign
-
-      - name: Create unsigned IPA artifact
-        script: |
-          mkdir -p $CM_ARTIFACTS_DIR
-
-          if [ -d "build/ios/iphoneos/Runner.app" ]; then
-            APP_PATH="build/ios/iphoneos/Runner.app"
-          elif [ -d "build/ios/Release-iphoneos/Runner.app" ]; then
-            APP_PATH="build/ios/Release-iphoneos/Runner.app"
-          else
-            echo "❌ Runner.app not found!"
-            ls -R build/ios || true
-            exit 1
-          fi
-
-          rm -rf Payload && mkdir Payload
-          cp -R "$APP_PATH" Payload/
-          zip -r app_unsigned.ipa Payload
-
-          # ⚡ Sửa chỗ này: dùng cp thay vì mv
-          cp app_unsigned.ipa $CM_ARTIFACTS_DIR/
+          flutter build ipa --release \
+            --dart-define=API_BASE_URL=$API_BASE_URL \
+            --export-options-plist=/Users/builder/export_options.plist
 
     artifacts:
-      - $CM_ARTIFACTS_DIR/*.ipa
+      - build/ios/ipa/*.ipa
