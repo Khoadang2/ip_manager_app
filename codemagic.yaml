@@ -22,7 +22,6 @@ workflows:
         script: |
           mkdir -p $CM_ARTIFACTS_DIR
 
-          # Check path of Runner.app (Codemagic sometimes changes output dir)
           if [ -d "build/ios/iphoneos/Runner.app" ]; then
             APP_PATH="build/ios/iphoneos/Runner.app"
           elif [ -d "build/ios/Release-iphoneos/Runner.app" ]; then
@@ -33,11 +32,12 @@ workflows:
             exit 1
           fi
 
-          # Create Payload and zip into IPA
           rm -rf Payload && mkdir Payload
           cp -R "$APP_PATH" Payload/
           zip -r app_unsigned.ipa Payload
-          mv app_unsigned.ipa $CM_ARTIFACTS_DIR/
+
+          # ⚡ Sửa chỗ này: dùng cp thay vì mv
+          cp app_unsigned.ipa $CM_ARTIFACTS_DIR/
 
     artifacts:
       - $CM_ARTIFACTS_DIR/*.ipa
