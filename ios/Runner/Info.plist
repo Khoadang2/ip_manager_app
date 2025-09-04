@@ -13,7 +13,7 @@
 	<string>$(EXECUTABLE_NAME)</string>
 
 	<key>CFBundleIdentifier</key>
-	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<string>com.kayit.ipmanager</string> <!-- ✅ thay thế đúng bundle id của bạn -->
 
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
@@ -40,6 +40,7 @@
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 
+	<!-- Nếu dùng storyboard Main thì để lại, không thì xóa dòng này -->
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 
