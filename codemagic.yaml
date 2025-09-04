@@ -8,8 +8,7 @@ workflows:
       xcode: latest
       cocoapods: default
       vars:
-        # Default, override trong Codemagic UI khi chạy build
-        API_BASE_URL: "http://192.168.71.9:5501"
+        API_BASE_URL: "http://192.168.71.9:5501" # có thể override trong Codemagic UI
     cache:
       cache_paths:
         - $FLUTTER_ROOT/.pub-cache
@@ -18,17 +17,16 @@ workflows:
         - ~/Library/Caches/CocoaPods
     triggering:
       events:
-        - push
-        - manual
+        - manual   # build thủ công, tránh tự động khi push
       cancel_previous_builds: true
     scripts:
-      - name: Flutter clean & get
+      - name: Flutter clean & pub get
         script: |
           flutter --version
           flutter clean
           flutter pub get
 
-      - name: Ensure iOS platform 12.0 (optional, safe)
+      - name: Ensure iOS platform 12.0
         script: |
           if [ -f "ios/Podfile" ]; then
             sed -i '' 's/platform :ios, .*/platform :ios, '\''12.0'\''/g' ios/Podfile || true
@@ -36,8 +34,9 @@ workflows:
 
       - name: Build iOS (no codesign)
         script: |
-          # Build Runner.app cho device (iphoneos)
-          flutter build ios --release --no-codesign --dart-define=API_BASE_URL=$API_BASE_URL
+          flutter build ios --release \
+            --no-codesign \
+            --dart-define=API_BASE_URL=$API_BASE_URL
 
       - name: Create unsigned IPA artifact
         script: |
@@ -45,11 +44,11 @@ workflows:
           cd build/ios/iphoneos
           rm -rf Payload && mkdir Payload
           cp -R Runner.app Payload/
-          /usr/bin/zip -r YourApp.ipa Payload
-          mv YourApp.ipa $CM_ARTIFACTS_DIR/
+          zip -r app_unsigned.ipa Payload
+          mv app_unsigned.ipa $CM_ARTIFACTS_DIR/
 
     artifacts:
-      - $CM_ARTIFACTS_DIR/YourApp.ipa
+      - $CM_ARTIFACTS_DIR/app_unsigned.ipa
 
   android_apk_release:
     name: Android APK Release (Flutter)
@@ -69,15 +68,19 @@ workflows:
       events:
         - manual
     scripts:
-      - name: Flutter clean & get
+      - name: Flutter clean & pub get
         script: |
           flutter --version
           flutter clean
           flutter pub get
+
       - name: Build Android APK
         script: |
-          flutter build apk --release --dart-define=API_BASE_URL=$API_BASE_URL
+          flutter build apk --release \
+            --dart-define=API_BASE_URL=$API_BASE_URL
           mkdir -p $CM_ARTIFACTS_DIR
-          cp build/app/outputs/flutter-apk/app-release.apk $CM_ARTIFACTS_DIR/YourApp-release.apk
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            $CM_ARTIFACTS_DIR/YourApp-release.apk
+
     artifacts:
       - $CM_ARTIFACTS_DIR/YourApp-release.apk
