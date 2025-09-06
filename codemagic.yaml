@@ -31,7 +31,7 @@ workflows:
           rm -rf Payload && mkdir Payload
           cp -R Runner.app Payload/
           zip -r app_ip.ipa Payload
-          mv app_ip.ipa $CM_ARTIFACTS_DIR/
+          cp app_ip.ipa $CM_ARTIFACTS_DIR/
 
     artifacts:
       - $CM_ARTIFACTS_DIR/app_ip.ipa
