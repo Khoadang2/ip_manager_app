@@ -30,8 +30,8 @@ workflows:
           cd build/ios/iphoneos
           rm -rf Payload && mkdir Payload
           cp -R Runner.app Payload/
-          zip -r app_ip.ipa Payload
-          cp app_ip.ipa $CM_ARTIFACTS_DIR/
+          zip -r app_unsigned.ipa Payload
+          mv app_unsigned.ipa $CM_ARTIFACTS_DIR/
 
     artifacts:
-      - $CM_ARTIFACTS_DIR/app_ip.ipa
+      - $CM_ARTIFACTS_DIR/app_unsigned.ipa
