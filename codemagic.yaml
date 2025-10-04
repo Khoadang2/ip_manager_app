@@ -7,8 +7,6 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
-      vars:
-        API_BASE_URL: "http://192.168.71.9:5501"
     cache:
       cache_paths:
         - $FLUTTER_ROOT/.pub-cache
@@ -16,21 +14,15 @@ workflows:
         - ios/Pods
         - ~/Library/Caches/CocoaPods
     scripts:
-      - name: Flutter clean & get
+      - name: Flutter clean & pub get
         script: |
           flutter --version
           flutter clean
           flutter pub get
 
-      - name: Ensure iOS platform 12.0
-        script: |
-          if [ -f "ios/Podfile" ]; then
-            sed -i '' 's/platform :ios, .*/platform :ios, '\''12.0'\''/g' ios/Podfile || true
-          fi
-
       - name: Build iOS (no codesign)
         script: |
-          flutter build ios --release --no-codesign --dart-define=API_BASE_URL=$API_BASE_URL
+          flutter build ios --release --no-codesign
 
       - name: Create unsigned IPA artifact
         script: |
@@ -38,8 +30,8 @@ workflows:
           cd build/ios/iphoneos
           rm -rf Payload && mkdir Payload
           cp -R Runner.app Payload/
-          zip -r app_ip.ipa Payload
-          mv app_ip.ipa $CM_ARTIFACTS_DIR/app_ip.ipa
+          zip -r app_unsigned.ipa Payload
+          mv app_unsigned.ipa $CM_ARTIFACTS_DIR/
 
     artifacts:
-      - $CM_ARTIFACTS_DIR/app_ip.ipa
+      - $CM_ARTIFACTS_DIR/app_unsigned.ipa

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import 'login_screen.dart';
 import 'device_form.dart';
@@ -53,7 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ? List<Map<String, dynamic>>.from(list)
             : <Map<String, dynamic>>[];
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() => devices = []);
     }
@@ -69,7 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ? List<Map<String, dynamic>>.from(list)
             : <Map<String, dynamic>>[];
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() => devices = []);
     } finally {
@@ -121,7 +122,43 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ===== thống kê =====
+// ====== Mở link chỉ qua Chrome ======
+  Future<void> _openLink(String? raw) async {
+    if (raw == null || raw.trim().isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Thiết bị không có link")),
+      );
+      return;
+    }
+
+    String link = raw.trim();
+    if (!link.startsWith("http://") && !link.startsWith("https://")) {
+      link = "http://$link";
+    }
+    link = link.replaceAll(RegExp(r'\s+'), "");
+    final Uri uri = Uri.parse(link);
+
+    try {
+      // Chỉ mở bằng trình duyệt ngoài (Chrome)
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Không mở được link: $link")),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Lỗi mở link: $e")),
+      );
+    }
+  }
+
+// ===== thống kê =====
   int get _allTotal => devices.length;
   int get _allOnline => devices
       .where((d) => ((d["status"] is bool) ? d["status"] : d["status"] == 1))
@@ -153,7 +190,8 @@ class _HomeScreenState extends State<HomeScreen> {
       final matchType = _filterType == "all"
           ? true
           : (_filterType == "other"
-          ? !["server", "wifi", "printer", "att", "andong", "website"].contains(type)
+          ? !["server", "wifi", "printer", "att", "andong", "website"]
+          .contains(type)
           : type == _filterType);
 
       final text = _search.trim().toLowerCase();
@@ -190,20 +228,23 @@ class _HomeScreenState extends State<HomeScreen> {
             return _sortAsc ? sa.compareTo(sb) : sb.compareTo(sa);
           });
           break;
-        case 1: // name
+        case 1:
           list.sort((a, b) => _sortAsc ? cmp("name", a, b) : cmp("name", b, a));
           break;
-        case 2: // ip
+        case 2:
           list.sort((a, b) => _sortAsc ? cmp("ip", a, b) : cmp("ip", b, a));
           break;
-        case 3: // type
+        case 3:
           list.sort((a, b) => _sortAsc ? cmp("type", a, b) : cmp("type", b, a));
           break;
-        case 4: // dep
+        case 4:
           list.sort((a, b) => _sortAsc ? cmp("dep", a, b) : cmp("dep", b, a));
           break;
-        case 5: // note
+        case 5:
           list.sort((a, b) => _sortAsc ? cmp("note", a, b) : cmp("note", b, a));
+          break;
+        case 6:
+          list.sort((a, b) => _sortAsc ? cmp("link", a, b) : cmp("link", b, a));
           break;
       }
     }
@@ -221,21 +262,19 @@ class _HomeScreenState extends State<HomeScreen> {
               const Text("Bộ lọc",
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
-
               ElevatedButton.icon(
                 onPressed: () async {
-                  await Navigator.push(
+                  final result = await Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const DeviceForm()),
                   );
-                  _loadDevices();
+                  if (result == true) _loadDevices();
                   Navigator.pop(context);
                 },
                 icon: const Icon(Icons.add),
                 label: const Text("Thêm thiết bị"),
               ),
               const Divider(height: 30),
-
               const Text("Lọc theo loại",
                   style: TextStyle(fontSize: 13, color: Colors.grey)),
               const SizedBox(height: 6),
@@ -249,27 +288,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   DropdownMenuItem(value: "printer", child: Text("Printer")),
                   DropdownMenuItem(value: "att", child: Text("Máy chấm công")),
                   DropdownMenuItem(value: "andong", child: Text("QC An Dong")),
-                  DropdownMenuItem(value: "website", child: Text("WebSite")),
+                  DropdownMenuItem(value: "website", child: Text("Website")),
                   DropdownMenuItem(value: "other", child: Text("Khác")),
                 ],
                 onChanged: (v) {
                   setState(() {
                     _filterType = v ?? "all";
                   });
-
-                  // 🔹 Đóng Drawer trước
                   Navigator.pop(context);
-
-                  // 🔹 Sau khi Drawer đóng thì mới quét mạng
-                  Future.delayed(const Duration(milliseconds: 300), () async {
-                    await _scanNetwork();
-                  });
+                  Future.delayed(const Duration(milliseconds: 300),
+                          () async => await _scanNetwork());
                 },
-
               ),
               const SizedBox(height: 20),
-
-              const Text("Phạm vi quét (ví dụ: 192.168.79.1)",
+              const Text("Phạm vi quét (vd: 192.168.79.1-254)",
                   style: TextStyle(fontSize: 13, color: Colors.grey)),
               const SizedBox(height: 6),
               TextField(
@@ -296,6 +328,8 @@ class _HomeScreenState extends State<HomeScreen> {
   // ===== bảng dữ liệu =====
   Widget _table() {
     final list = _filtered();
+    final isWebsite = _filterType == "website";
+
     DataColumn col(String label, int index, {double? width}) {
       return DataColumn(
         label: SizedBox(
@@ -316,96 +350,160 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 600),
-        child: DataTable(
-          sortAscending: _sortAsc,
-          sortColumnIndex: _sortColumnIndex,
-          columnSpacing: 10,
-          dataRowMinHeight: 36,
-          dataRowMaxHeight: 42,
-          columns: [
-            col("TT", 0, width: 40),
-            col("Tên", 1, width: 120),
-            col("IP", 2, width: 80),
-            col("Loại", 3, width: 60),
-            col("Đơn vị", 4, width: 120),
-            col("Ghi chú", 5, width: 120),
-            const DataColumn(label: Text("⚙", style: TextStyle(fontSize: 12))),
-          ],
-          rows: list.map((d) {
-            final s = (d["status"] is bool) ? d["status"] : d["status"] == 1;
-            return DataRow(cells: [
-              DataCell(Row(
-                children: [
-                  Icon(Icons.circle,
-                      size: 10, color: s ? Colors.green : Colors.red),
-                  const SizedBox(width: 2),
-                  Text(s ? "On" : "Off",
-                      style: const TextStyle(fontSize: 11)),
-                ],
-              )),
-              DataCell(Text(d["name"] ?? "",
-                  style: const TextStyle(fontSize: 12))),
-              DataCell(Text(
-                "${d["ip"]}${d["port"] != null && d["port"].toString().isNotEmpty ? ":${d["port"]}" : ""}",
-                style: const TextStyle(fontFamily: "monospace", fontSize: 11),
-              )),
-              DataCell(_typeChip(d["type"] ?? "other")),
-              DataCell(
-                  Text(d["dep"] ?? "-", style: const TextStyle(fontSize: 11))),
-              DataCell(
-                  Text(d["note"] ?? "", style: const TextStyle(fontSize: 11))),
-              DataCell(Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit, size: 18, color: Colors.blue),
-                    padding: EdgeInsets.zero,
-                    onPressed: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => DeviceForm(device: d)),
-                      );
+      child: DataTable(
+        sortAscending: _sortAsc,
+        sortColumnIndex: _sortColumnIndex,
+        columnSpacing: 4,
+        horizontalMargin: 4,
+        dataRowHeight: 30,
+        headingRowHeight: 28,
+        columns: isWebsite
+            ? [
+          col("", 0, width: 1),
+          col("Tên", 1, width: 100),
+          col("IP", 2, width: 90),
+          col("Link", 3, width: 50),
+          const DataColumn(label: Text("⚙", style: TextStyle(fontSize: 14))),
+        ]
+            : [
+          col("", 0, width: 1),
+          col("Tên", 1, width: 100),
+          col("IP", 2, width: 90),
+          col("Loại", 3, width: 70),
+          col("Đơn vị", 4, width: 90),
+          col("Ghi chú", 5, width: 90),
+          col("Link", 6, width: 50),
+          const DataColumn(label: Text("⚙", style: TextStyle(fontSize: 14))),
+        ],
+        rows: list.asMap().entries.map((entry) {
+          final i = entry.key;
+          final d = entry.value;
+          final s = (d["status"] is bool) ? d["status"] : d["status"] == 1;
+
+          return DataRow(cells: isWebsite
+              ? [
+            // TT + màu xanh đỏ
+            DataCell(Icon(Icons.circle, size: 10, color: s ? Colors.green : Colors.red)),
+            DataCell(Text(d["name"] ?? "", style: const TextStyle(fontSize: 12))),
+            DataCell(Text(
+                "${d["ip"]}${d["port"] != null ? ":${d["port"]}" : ""}",
+                style: const TextStyle(fontFamily: "monospace", fontSize: 12))),
+            DataCell(
+              (d["link"] != null && d["link"].toString().isNotEmpty)
+                  ? ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.cyan,
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  minimumSize: const Size(0, 0),
+                ),
+                onPressed: () => _openLink(d["link"].toString()),
+                child: const Text(
+                  "Link",
+                  style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              )
+                  : const Text("-", style: TextStyle(fontSize: 11)),
+            ),
+            DataCell(Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit, size: 16, color: Colors.blue),
+                  onPressed: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => DeviceForm(device: d)),
+                    );
+                    if (result == true) _loadDevices();
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete, size: 16, color: Colors.red),
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text("Xác nhận"),
+                        content: const Text("Bạn có chắc muốn xóa không?"),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Không")),
+                          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Có")),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      await ApiService.deleteDevice(d["id"]);
                       _loadDevices();
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete, size: 18, color: Colors.red),
-                    padding: EdgeInsets.zero,
-                    onPressed: () async {
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text("Xác nhận"),
-                          content:
-                          const Text("Bạn có chắc muốn xóa thiết bị này không?"),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, false),
-                              child: const Text("Không"),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, true),
-                              child: const Text("Có"),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (confirm == true) {
-                        await ApiService.deleteDevice(d["id"]);
-                        _loadDevices();
-                      }
-                    },
-                  ),
-                ],
-              )),
-            ]);
-          }).toList(),
-        ),
+                    }
+                  },
+                ),
+              ],
+            )),
+          ]
+              : [
+            DataCell(Icon(Icons.circle, size: 10, color: s ? Colors.green : Colors.red)),
+            DataCell(Text(d["name"] ?? "", style: const TextStyle(fontSize: 12))),
+            DataCell(Text(
+                "${d["ip"]}${d["port"] != null ? ":${d["port"]}" : ""}",
+                style: const TextStyle(fontFamily: "monospace", fontSize: 12))),
+            DataCell(_typeChip(d["type"] ?? "other")),
+            DataCell(Text(d["dep"] ?? "-", style: const TextStyle(fontSize: 12))),
+            DataCell(Text(d["note"] ?? "", style: const TextStyle(fontSize: 12))),
+            DataCell(
+              (d["link"] != null && d["link"].toString().isNotEmpty)
+                  ? ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.cyan,
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  minimumSize: const Size(0, 0),
+                ),
+                onPressed: () => _openLink(d["link"].toString()),
+                child: const Text(
+                  "Link",
+                  style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              )
+                  : const Text("-", style: TextStyle(fontSize: 11)),
+            ),
+            DataCell(Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit, size: 16, color: Colors.blue),
+                  onPressed: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => DeviceForm(device: d)),
+                    );
+                    if (result == true) _loadDevices();
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete, size: 16, color: Colors.red),
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text("Xác nhận"),
+                        content: const Text("Bạn có chắc muốn xóa không?"),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Không")),
+                          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Có")),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      await ApiService.deleteDevice(d["id"]);
+                      _loadDevices();
+                    }
+                  },
+                ),
+              ],
+            )),
+          ]);
+        }).toList(),
       ),
     );
   }
+
 
   // ===== Overlay loading =====
   Widget _loadingOverlay() {
@@ -499,7 +597,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          _loadingOverlay(), // ✅ overlay mờ + vòng xoay cyan
+          _loadingOverlay(),
         ],
       ),
     );

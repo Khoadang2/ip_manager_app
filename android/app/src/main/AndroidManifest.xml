@@ -8,7 +8,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
-        android:label="ip_manager_app"
+        android:label="Ip_App"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"> <!-- cho phép gọi HTTP LAN -->
@@ -40,8 +40,21 @@
             android:value="2" />
     </application>
 
-    <!-- Cho phép Flutter engine xử lý text -->
+    <!-- Cho phép app tìm Chrome/browser để mở link -->
     <queries>
+        <!-- Cho phép mở link http -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
+
+        <!-- Cho phép mở link https -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+
+        <!-- Giữ lại query xử lý text nếu cần -->
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

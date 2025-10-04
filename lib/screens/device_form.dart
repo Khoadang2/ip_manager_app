@@ -1,4 +1,3 @@
-// device_form.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
@@ -17,6 +16,7 @@ class _DeviceFormState extends State<DeviceForm> {
   final _port = TextEditingController();
   final _dep = TextEditingController();
   final _note = TextEditingController();
+  final _link = TextEditingController();
   String _type = "server";
   bool _status = true;
 
@@ -30,6 +30,7 @@ class _DeviceFormState extends State<DeviceForm> {
       _port.text = d["port"]?.toString() ?? "";
       _dep.text = d["dep"] ?? "";
       _note.text = d["note"] ?? "";
+      _link.text = d["link"] ?? "";
       _type = d["type"] ?? "server";
       _status = (d["status"] is bool) ? d["status"] : d["status"] == 1;
     }
@@ -46,73 +47,77 @@ class _DeviceFormState extends State<DeviceForm> {
       "port": _port.text.trim().isEmpty ? null : int.tryParse(_port.text.trim()),
       "dep": _dep.text.trim(),
       "note": _note.text.trim(),
+      "link": _link.text.trim(),
       "status": _status ? 1 : 0,
       "userid": userid,
     };
 
-    if (widget.device == null) {
-      await ApiService.addDevice(data);
-    } else {
-      await ApiService.updateDevice(widget.device!["id"], data);
+    try {
+      if (widget.device == null) {
+        await ApiService.addDevice(data);
+      } else {
+        await ApiService.updateDevice(widget.device!["id"], data);
+      }
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("❌ Lỗi lưu: $e")),
+      );
     }
-
-    if (!mounted) return;
-    Navigator.pop(context, true);
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.device == null ? "Thêm thiết bị" : "Sửa thiết bị"),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: SingleChildScrollView( // ✅ responsive
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: screenHeight * 0.7),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(controller: _name, decoration: const InputDecoration(labelText: "Tên thiết bị")),
-                const SizedBox(height: 10),
-                TextField(controller: _ip, decoration: const InputDecoration(labelText: "IP")),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _port,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: "Port (tùy chọn)"),
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField(
-                  value: _type,
-                  decoration: const InputDecoration(labelText: "Loại thiết bị"),
-                  items: const [
-                    DropdownMenuItem(value: "server", child: Text("Server")),
-                    DropdownMenuItem(value: "wifi", child: Text("Wifi")),
-                    DropdownMenuItem(value: "printer", child: Text("Printer")),
-                    DropdownMenuItem(value: "att", child: Text("Máy chấm công")),
-                    DropdownMenuItem(value: "andong", child: Text("QC An Dong")),
-                    DropdownMenuItem(value: "website", child: Text("WebSite")),
-                    DropdownMenuItem(value: "other", child: Text("Khác")),
-                  ],
-                  onChanged: (v) => setState(() => _type = v as String),
-                ),
-                const SizedBox(height: 10),
-                TextField(controller: _dep, decoration: const InputDecoration(labelText: "Đơn vị")),
-                const SizedBox(height: 10),
-                TextField(controller: _note, decoration: const InputDecoration(labelText: "Ghi chú")),
-                const SizedBox(height: 10),
-                SwitchListTile(
-                  value: _status,
-                  title: const Text("Online"),
-                  onChanged: (v) => setState(() => _status = v),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(onPressed: _save, child: const Text("Lưu")),
-              ],
-            ),
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              TextField(controller: _name, decoration: const InputDecoration(labelText: "Tên thiết bị")),
+              const SizedBox(height: 10),
+              TextField(controller: _ip, decoration: const InputDecoration(labelText: "IP")),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _port,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: "Port (tùy chọn)"),
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField(
+                value: _type,
+                decoration: const InputDecoration(labelText: "Loại thiết bị"),
+                items: const [
+                  DropdownMenuItem(value: "server", child: Text("Server")),
+                  DropdownMenuItem(value: "wifi", child: Text("Wifi")),
+                  DropdownMenuItem(value: "printer", child: Text("Printer")),
+                  DropdownMenuItem(value: "att", child: Text("Máy chấm công")),
+                  DropdownMenuItem(value: "andong", child: Text("QC An Dong")),
+                  DropdownMenuItem(value: "website", child: Text("Website")), // <-- chữ viết hoa/lỗi
+                  DropdownMenuItem(value: "other", child: Text("Khác")),
+                ],
+                onChanged: (v) => setState(() => _type = v as String),
+              ),
+              const SizedBox(height: 10),
+              TextField(controller: _dep, decoration: const InputDecoration(labelText: "Đơn vị")),
+              const SizedBox(height: 10),
+              TextField(controller: _note, decoration: const InputDecoration(labelText: "Ghi chú")),
+              const SizedBox(height: 10),
+              TextField(controller: _link, decoration: const InputDecoration(labelText: "Link (URL)")),
+              const SizedBox(height: 10),
+              SwitchListTile(
+                value: _status,
+                title: const Text("Online"),
+                onChanged: (v) => setState(() => _status = v),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(onPressed: _save, child: const Text("Lưu")),
+            ],
           ),
         ),
       ),

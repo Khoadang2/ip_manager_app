@@ -16,7 +16,29 @@ class _LoginScreenState extends State<LoginScreen> {
   String _msg = "";
   bool _loading = false;
   bool _obscure = true;
+  bool _remember = false; // 👈 trạng thái checkbox
 
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedAccount();
+  }
+
+  // ===== load tài khoản đã lưu =====
+  Future<void> _loadSavedAccount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedUser = prefs.getString("saved_user");
+    final savedPwd = prefs.getString("saved_pwd");
+    final savedRemember = prefs.getBool("remember_me") ?? false;
+
+    if (savedRemember && savedUser != null && savedPwd != null) {
+      _userCtrl.text = savedUser;
+      _pwdCtrl.text = savedPwd;
+      setState(() => _remember = true);
+    }
+  }
+
+  // ===== login =====
   Future<void> _login() async {
     setState(() {
       _loading = true;
@@ -34,6 +56,18 @@ class _LoginScreenState extends State<LoginScreen> {
       if (res["success"] == true) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString("user", res["user"]["USERID"]);
+
+        // 👇 lưu lại nếu tick Ghi nhớ
+        if (_remember) {
+          await prefs.setString("saved_user", _userCtrl.text.trim());
+          await prefs.setString("saved_pwd", _pwdCtrl.text.trim());
+          await prefs.setBool("remember_me", true);
+        } else {
+          await prefs.remove("saved_user");
+          await prefs.remove("saved_pwd");
+          await prefs.setBool("remember_me", false);
+        }
+
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
@@ -70,9 +104,8 @@ class _LoginScreenState extends State<LoginScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final double maxWidth = constraints.maxWidth > 420
-                    ? 400.0
-                    : (constraints.maxWidth * 0.95).toDouble();
+                final double maxWidth =
+                constraints.maxWidth > 420 ? 400.0 : (constraints.maxWidth * 0.95).toDouble();
 
                 return Container(
                   width: maxWidth,
@@ -111,21 +144,20 @@ class _LoginScreenState extends State<LoginScreen> {
                         controller: _userCtrl,
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
-                          prefixIcon:
-                          const Icon(Icons.person, color: Colors.cyan),
+                          prefixIcon: const Icon(Icons.person, color: Colors.cyan),
                           labelText: "UserID",
                           labelStyle: const TextStyle(color: Colors.cyan),
                           filled: true,
                           fillColor: Colors.black.withOpacity(0.3),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
-                            borderSide: BorderSide(
-                                color: Colors.white.withOpacity(0.3)),
+                            borderSide:
+                            BorderSide(color: Colors.white.withOpacity(0.3)),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(
-                                color: Colors.cyan, width: 1.5),
+                            borderSide:
+                            const BorderSide(color: Colors.cyan, width: 1.5),
                           ),
                         ),
                       ),
@@ -137,13 +169,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         obscureText: _obscure,
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
-                          prefixIcon:
-                          const Icon(Icons.lock, color: Colors.cyan),
+                          prefixIcon: const Icon(Icons.lock, color: Colors.cyan),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _obscure
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
+                              _obscure ? Icons.visibility_off : Icons.visibility,
                               color: Colors.cyan,
                             ),
                             onPressed: () =>
@@ -155,19 +184,39 @@ class _LoginScreenState extends State<LoginScreen> {
                           fillColor: Colors.black.withOpacity(0.3),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
-                            borderSide: BorderSide(
-                                color: Colors.white.withOpacity(0.3)),
+                            borderSide:
+                            BorderSide(color: Colors.white.withOpacity(0.3)),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(
-                                color: Colors.cyan, width: 1.5),
+                            borderSide:
+                            const BorderSide(color: Colors.cyan, width: 1.5),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 12),
 
-                      // Login button - gradient
+                      // 👇 Checkbox ghi nhớ
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end, // nằm bên phải màn hình
+                        children: [
+                          Checkbox(
+                            value: _remember,
+                            activeColor: Colors.cyan,
+                            onChanged: (val) {
+                              setState(() => _remember = val ?? false);
+                            },
+                          ),
+                          const Text(
+                            "Ghi nhớ",
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+
+                      // Login button
                       SizedBox(
                         width: double.infinity,
                         height: 48,

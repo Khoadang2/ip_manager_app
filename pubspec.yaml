@@ -1,26 +1,29 @@
 name: ip_manager_app
 description: "A new Flutter project."
 publish_to: 'none'
-
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.8.1
+  sdk: ">=3.8.1 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
 
-  http: ^1.2.0
+  # Networking & HTTP
+  http: ^1.2.2
+  network_info_plus: ^5.0.3
+  network_tools: ^5.0.3  # scan/ping LAN
+
+  # State & Storage
   shared_preferences: ^2.2.3
   provider: ^6.0.5
+
+  # UI & Icons
   cupertino_icons: ^1.0.8
+  url_launcher: ^6.3.0
 
-  # 👇 các package scan/ping mạng LAN
-  network_info_plus: ^5.0.3
-  network_tools: ^5.0.3   # thay cho ping_discover_network (package cũ đã bỏ)
-
-  # 👇 nếu bạn cần xuất CSV/Excel
+  # Export CSV/Excel
   csv: ^6.0.0
   excel: ^4.0.3
 
@@ -28,6 +31,13 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  image_path: "assets/images/logo.png"
 
 flutter:
   uses-material-design: true
